@@ -1,0 +1,78 @@
+"""
+config.py
+
+Purpose:
+This file stores all project settings in one location so they can be
+easily updated without changing multiple files.
+
+Contents:
+- Dataset folder locations
+- Dataset file paths
+- Label column name
+- Random seed value
+- Train/test split size
+- Number of top features to select
+"""
+
+# Import Path from pathlib.
+# Path creates file and folder paths that work across different operating systems.
+from pathlib import Path
+
+
+# Path.home() returns the current user's home directory.
+# "/" is used to safely join folders together.
+DATA_ROOT = Path.home() / "Desktop" / "replication_studies" / "XAI_Feature_Selection"
+
+
+# Dictionary containing all dataset file locations.
+#
+# Key   = short dataset name used in the code
+# Value = full path to the processed CSV file
+#
+# Example:
+# DATASETS["uavcan"]
+# returns:
+# Desktop/replication_studies/XAI_Feature_Selection/UAVCAN/processed_UAVCAN.csv
+DATASETS = {
+    "uavcan":      DATA_ROOT / "UAVCAN" / "processed_UAVCAN.csv",
+    "isot":        DATA_ROOT / "ISOT" / "processed_ISOT.csv",
+    "uav_attack":  DATA_ROOT / "UAV_Attack" / "processed_UAV_Attack.csv",
+}
+
+
+# Name of the target column used for machine learning.
+# The model learns to predict values in this column.
+LABEL_COLUMN = "label"
+
+
+# Random seed used to make results reproducible.
+# Using the same seed helps generate the same train/test split
+# and model results each time the code runs.
+SEED = 42
+
+
+# Percentage of data reserved for testing.
+# 0.2 = 20% test data
+# 0.8 = 80% training data
+TEST_SIZE = 0.2
+
+
+# Number of top-ranked features to keep after feature selection.
+# Example:
+# If TOP_K = 5, only the 5 most important features are retained.
+TOP_K = 5
+
+# Which label number means "normal/benign" in each dataset
+# (confirmed from Paper 1 notebooks)
+BENIGN_LABEL = {
+    "uavcan": 1,       # Normal = 1
+    "isot": 0,         # Benign = 0
+    "uav_attack": 2,   # benign = 2
+}
+
+# SHAP is too slow to run on full test sets:
+# SHAP sample sized (SHAP is slow, so we explain a subset) sizes match paper 1
+SHAP_SAMPLES_RF = 500
+SHAP_SAMPLES_CNN = 100
+SHAP_SAMPLES_AE = 50
+SHAP_BACKGROUND = 50
