@@ -133,7 +133,9 @@ def shap_random_forest(rf,X_sample, feature_names):
         
     else: importance = np.mean(np.abs(shap_values),axis=0) # binary: avarage asolute SHAP values
     all_zero = bool(np.all(importance == 0))
+    return importance, all_zero
     return importance
+    
     
 def shap_cnn(cnn,X_sample, X_background, feature_names):
     # SHAP for CNN usig GradientExplainer (need 3D input).
@@ -149,7 +151,9 @@ def shap_cnn(cnn,X_sample, X_background, feature_names):
     # shap is (samples, features, 1, classes) - drop the channel axis
     # take absolute value, average over samples and classes
     importance = np.mean(np.abs(shap_values[:, :, 0, :]), axis=(0,2))
-    return importance
+    all_zero = bool(np.all(importance == 0))
+    return importance, all_zero
+
 
 def shap_autoencoder(ae, X_sample, X_background, feature_names):
     # X_background = normal reference used for comparison
@@ -164,7 +168,8 @@ def shap_autoencoder(ae, X_sample, X_background, feature_names):
     shap_values = explainer.shap_values(X_sample)
 
     importance = np.mean(np.abs(shap_values), axis=0)
-    return importance
+    all_zero = bool(np.all(importance == 0))
+    return importance, all_zero
 
 def shap_isolation_forest(iso, X_sample, X_background, feature_names):
     # SHAP for Isolation Forest using KernelExplainer,
@@ -175,7 +180,8 @@ def shap_isolation_forest(iso, X_sample, X_background, feature_names):
     explainer = shap.KernelExplainer(iso_score, X_background)
     shap_values = explainer.shap_values(X_sample)
     importance = np.mean(np.abs(shap_values), axis=0)
-    return importance
+    all_zero = bool(np.all(importance == 0))
+    return importance, all_zero
         
 """
 # ==============================================================================
@@ -298,7 +304,7 @@ def pi_isolation_forest(iso, X_sample, y_sample, feature_names, dataset_name, n_
         for _ in range(n_repeats):
             X_perm = X_sample.copy()
             np.random.shuffle(X_perm[:, j])
-            score = f1_score(y_true, (iso.predict(X_sample) == -1).astype(int), zero_division=0)
+            score = f1_score(y_true, (iso.predict(X_perm) == -1).astype(int), zero_division=0)
             drops.append(baseline - score)
         importance[j] = np.mean(drops)
     all_zero = bool(np.all(importance == 0))
@@ -341,13 +347,13 @@ def _lime_global(explainer, predict_fn, X_sample, feature_names, n_samples, n_pe
         weights = list(exp.as_map().values())[0]
         for  feat_idx, w in weights:
             running[feat_idx] += abs(w)
-        if (i+1) in (50, n_samples):
-            snapshots[i+1] = running.copy()/(i+1)
-    return snapshots
+    importance = running / n_samples
+    all_zero = bool(np.all(importance == 0))
+    return importance, all_zero
     # snapshots solves 50 vs 100 question in one pass and record 
     # running 50 and 100 results for me to comparison.
 
-def lime_random_forest(rf, X_train, X_sample, feature_names, n_samples = 100):
+def lime_random_forest(rf, X_train, X_sample, feature_names, n_samples = 50):
     """LIME for Random Forest - works directly with predict_proba."""
     explainer = lime.lime_tabular.LimeTabularExplainer(
         X_train,
@@ -358,7 +364,7 @@ def lime_random_forest(rf, X_train, X_sample, feature_names, n_samples = 100):
     return _lime_global(explainer, rf.predict_proba, X_sample, feature_names, n_samples)
     # _lime_global is shared helper ,which use it for 4 times but only write it once.
     
-def lime_cnn(cnn, X_train, X_sample, feature_names, n_samples = 100):
+def lime_cnn(cnn, X_train, X_sample, feature_names, n_samples = 50):
     # LIME for CNN - needs a wrapper to reshape 2D input to 3D.
     n_features = len(feature_names)
 
@@ -374,7 +380,7 @@ def lime_cnn(cnn, X_train, X_sample, feature_names, n_samples = 100):
     )
     return _lime_global(explainer, cnn_predict, X_sample, feature_names, n_samples)
 
-def lime_autoencoder(ae, X_train, X_sample, feature_names, threshold, n_samples = 100):
+def lime_autoencoder(ae, X_train, X_sample, feature_names, threshold, n_samples = 50):
     """
     LIME for Autoencoder - needs a wrapper because the AE outputs
     reconstruction error, not class probabilities. 
@@ -394,7 +400,7 @@ def lime_autoencoder(ae, X_train, X_sample, feature_names, threshold, n_samples 
     )
     return _lime_global(explainer, ae_predict_proba, X_sample, feature_names, n_samples)
 
-def lime_isolation_forest(iso, X_train, X_sample, feature_names, n_samples = 100):
+def lime_isolation_forest(iso, X_train, X_sample, feature_names, n_samples = 50):
     """
     LIME for Isolation Forest - convert the anomaly score to pseudo-probabilities. 
     decision_function is negatve for outliers
@@ -417,7 +423,8 @@ def lime_isolation_forest(iso, X_train, X_sample, feature_names, n_samples = 100
 # Idea: start from a baseline (all zeros), step gradually towars the 
 # real input, and measure the gradient at each step. Sum those gradients along the path.
 
-# ONLY works on neural models (CNN, AE) - tree have no gradients.
+# ONLY works on neural models (CNN, AE). Tree-based models (Random Forest,
+# Isolation Forest) have no gradients, so IG cannot run on them.
 # Needs no new library: pure TensorFlow
 
 import tensorflow as tf
@@ -441,11 +448,13 @@ def ig_cnn(cnn, X_sample, feature_names, n_steps=50):
         alphas = np.linspace(0, 1, n_steps).reshape(-1, 1, 1).astype("float32")
         path = base + alphas * (x - base)  # (n_steps, features, 1)
         path_tf = tf.convert_to_tensor(path)
-
+        
+         # fix the class from the REAL input so it can't switch along the path
+        predicted_class = int(np.argmax(cnn(tf.convert_to_tensor(x)).numpy()[0]))
         with tf.GradientTape() as tape:
             tape.watch(path_tf)
             preds = cnn(path_tf)
-            target = tf.reduce_max(preds, axis=1) # the winning clas score
+            target = preds[:, predicted_class]
 
         grads = tape.gradient(target, path_tf).numpy() # (n_steps, features, 1)
 

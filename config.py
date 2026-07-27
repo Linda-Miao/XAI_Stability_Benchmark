@@ -52,9 +52,9 @@ SEED = 42
 
 
 # Percentage of data reserved for testing.
-# 0.2 = 20% test data
-# 0.8 = 80% training data
-TEST_SIZE = 0.2
+# 0.3 = 30% test data
+# 0.7 = 70% training data
+TEST_SIZE = 0.3
 
 
 # Number of top-ranked features to keep after feature selection.
