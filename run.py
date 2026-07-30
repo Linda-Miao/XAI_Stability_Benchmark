@@ -34,6 +34,8 @@ run.py
 └── Save all results
 """
 import time
+import json        
+import os         
 import numpy as np
 
 import config
@@ -42,6 +44,32 @@ import models
 import metrics
 import xai
 
+
+def _make_serializable(obj):
+    """
+    Convert a results structure into something JSON can save.
+    JSON only understands basic types (str, int, float, list, dict), but our
+    results contain numpy numbers (from the models) and tuple dict-keys (like
+    ("shap","lime") from the ESS pairwise scores), which JSON cannot store.
+
+    This walks through the structure recursively and converts:
+      - tuple dict-keys  -> strings   (e.g. ("shap","lime") -> "('shap', 'lime')")
+      - numpy integers   -> python int
+      - numpy floats     -> python float
+      - numpy arrays     -> python lists
+    Anything already JSON-safe is returned unchanged.
+    """
+    if isinstance(obj, dict):
+        return {str(k): _make_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_serializable(x) for x in obj]
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
 
 # ----------------------------------------------------------
 # Run all 4 XAI methods for one model, return {method: (importance, all_zero)}
