@@ -1,0 +1,118 @@
+{
+  "dataset": "uav_attack",
+  "n_features": 80,
+  "ml_metrics": {
+    "rf": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "cnn": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "ae": {
+      "accuracy": 0.958291956305859,
+      "precision": 0.8271954674220963,
+      "recall": 0.9931972789115646,
+      "f1": 0.9026275115919629,
+      "threshold": 0.31866231371855874
+    },
+    "iso": {
+      "accuracy": 0.8848063555114201,
+      "precision": 0.6282051282051282,
+      "recall": 1.0,
+      "f1": 0.7716535433070866
+    }
+  },
+  "ess": {
+    "rf": {
+      "ess": 0.0,
+      "methods_used": [
+        "lime",
+        "shap"
+      ],
+      "pairwise": {
+        "('lime', 'shap')": 0.0
+      },
+      "n_methods": 2
+    },
+    "cnn": {
+      "ess": 0.1316137566137566,
+      "methods_used": [
+        "ig",
+        "lime",
+        "pi",
+        "shap"
+      ],
+      "pairwise": {
+        "('ig', 'lime')": 0.1111111111111111,
+        "('ig', 'pi')": 0.0,
+        "('ig', 'shap')": 0.42857142857142855,
+        "('lime', 'pi')": 0.25,
+        "('lime', 'shap')": 0.0,
+        "('pi', 'shap')": 0.0
+      },
+      "n_methods": 4
+    },
+    "ae": {
+      "ess": 0.16865079365079363,
+      "methods_used": [
+        "ig",
+        "lime",
+        "pi",
+        "shap"
+      ],
+      "pairwise": {
+        "('ig', 'lime')": 0.1111111111111111,
+        "('ig', 'pi')": 0.1111111111111111,
+        "('ig', 'shap')": 0.42857142857142855,
+        "('lime', 'pi')": 0.25,
+        "('lime', 'shap')": 0.1111111111111111,
+        "('pi', 'shap')": 0.0
+      },
+      "n_methods": 4
+    },
+    "iso": {
+      "ess": 0.08333333333333333,
+      "methods_used": [
+        "lime",
+        "pi",
+        "shap"
+      ],
+      "pairwise": {
+        "('lime', 'pi')": 0.0,
+        "('lime', 'shap')": 0.25,
+        "('pi', 'shap')": 0.0
+      },
+      "n_methods": 3
+    }
+  },
+  "runtimes": {
+    "rf": {
+      "shap": 0.13,
+      "lime": 5.22,
+      "pi": 33.62
+    },
+    "cnn": {
+      "shap": 16.71,
+      "lime": 14.81,
+      "pi": 563.68,
+      "ig": 6.26
+    },
+    "ae": {
+      "shap": 411.25,
+      "lime": 10.43,
+      "pi": 203.68,
+      "ig": 0.95
+    },
+    "iso": {
+      "shap": 34.68,
+      "lime": 3.65,
+      "pi": 44.15
+    }
+  }
+}
