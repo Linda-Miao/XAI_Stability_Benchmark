@@ -91,7 +91,20 @@ def run_xai_for_model(model_name, model, Xtr, Xte, ytr, yte, feat, dataset_name,
     """
     results = {}  # each xai importance arrays
     runtimes = {} # get each xai run time
-
+   
+    # XAI test0set cap: PI and LIME are too slow on huge test sets (e.g. cicids2017
+    # has 848K test rows). Subsample a fixed number of test rows for XAI only
+    # ML metrics still use the full test set - this is XAI-specific
+    cap = config.XAI_TEST_CAP
+    if len(Xte) > cap:
+        rng = np.random.RandomState(config.SEED) # reproducible subsample
+        idx = rng.choice(len(Xte), cap, replace=False)
+        Xte_xai = Xte[idx]
+        yte_xai = yte[idx]
+    else:
+        Xte_xai = Xte
+        yte_xai = yte
+        
     def timed(name, func):
         start = time.time()
         out = func()
@@ -110,8 +123,11 @@ def run_xai_for_model(model_name, model, Xtr, Xte, ytr, yte, feat, dataset_name,
         timed("lime", lambda: xai.lime_cnn(model, Xtr, Xte, feat))
         timed("pi",   lambda: xai.pi_cnn(model, Xte, yte, feat))
         timed("ig",   lambda: xai.ig_cnn(model, Xte[:100], feat))
-        # Deep SHAP/GradientExplainer requires background samples because they define the reference distribution for explanations.
-        # LIME and PI do not need background samples because they use perturbations and evaluation data respectively.
+        # Deep SHAP/GradientExplainer requires background samples 
+        # because they define the reference distribution for explanations.
+        # LIME and PI do not need background samples because 
+        # they use perturbations and evaluation data respectively.
+        
         # IG uses gradients and a baseline input rather than SHAP background samples.
         
     elif model_name == "ae":

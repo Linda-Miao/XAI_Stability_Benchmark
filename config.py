@@ -37,6 +37,9 @@ DATASETS = {
     "uavcan":      DATA_ROOT / "UAVCAN" / "processed_UAVCAN.csv",
     "isot":        DATA_ROOT / "ISOT" / "processed_ISOT.csv",
     "uav_attack":  DATA_ROOT / "UAV_Attack" / "processed_UAV_Attack.csv",
+     
+    # CICIDS uses processed files, not this path directly
+    "cicids": DATA_ROOT / "CICIDS-2017" / "processed",
 }
 
 
@@ -68,6 +71,7 @@ BENIGN_LABEL = {
     "uavcan": 1,       # Normal = 1
     "isot": 0,         # Benign = 0
     "uav_attack": 2,   # benign = 2
+    "cicids": 0,       # BENIGN = 0
 }
 
 # SHAP is too slow to run on full test sets:
@@ -76,3 +80,13 @@ SHAP_SAMPLES_RF = 500
 SHAP_SAMPLES_CNN = 100
 SHAP_SAMPLES_AE = 50
 SHAP_BACKGROUND = 50
+
+# XAI test-set cap: XAI methods (especially PI, LIME) run on at most this many
+# test rows, subsampled reproducibly. Big datasets (CICIDS: 848K test rows)
+# would otherwise take hours. ML metrics still use the full test set.
+XAI_TEST_CAP = 3000
+
+# TRAINING cap for huge datasets: 8GB RAM cannot train 4 models on 2M+ rows.
+# CICIDS (2.8M) is subsampled to these sizes (stratified) so it fits in memory.
+CICIDS_TRAIN_CAP = 150000
+CICIDS_TEST_CAP = 50000
