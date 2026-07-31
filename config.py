@@ -40,6 +40,7 @@ DATASETS = {
      
     # CICIDS uses processed files, not this path directly
     "cicids": DATA_ROOT / "CICIDS-2017" / "processed",
+    "uav_cyber": DATA_ROOT / "UAV-Cyber-Physical" / "processed",
 }
 
 
@@ -72,6 +73,7 @@ BENIGN_LABEL = {
     "isot": 0,         # Benign = 0
     "uav_attack": 2,   # benign = 2
     "cicids": 0,       # BENIGN = 0
+    "uav_cyber": 2,     # benign = 2
 }
 
 # SHAP is too slow to run on full test sets:
