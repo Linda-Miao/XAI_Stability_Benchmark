@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 import config
 
@@ -98,8 +99,21 @@ def load_dataset(name):
 
     # 4. Separate features (X) from the label (y)
     y = df[config.LABEL_COLUMN].values
-    X = df.drop(columns=[config.LABEL_COLUMN])
+    X = df.drop(columns=[config.LABEL_COLUMN]) 
+    X = X.select_dtypes(include=["number"])   # drop non-numeric feature columns
+    # Drop ID columns that are numeric but meaningless as features
+    # (e.g. FlowID is a row identifier, not a real feature that predicts attacks).
+    id_cols = [c for c in X.columns if c.lower() in ("flowid", "id", "index")]
+    X = X.drop(columns=id_cols)
     feature_names = list(X.columns)
+
+    # 4c. Encode text labels to numbers (UAVIDS-2025 has text labels like
+    #     "Normal Traffic"; other datasets are already numeric int64).
+    if y.dtype == object:   # text labels
+        le = LabelEncoder()
+        y = le.fit_transform(y)
+        print(f"  encoded labels: {dict(zip(le.classes_, le.transform(le.classes_)))}")
+
 
     # 5. Scale features (mean 0, std 1)
     X = StandardScaler().fit_transform(X)
