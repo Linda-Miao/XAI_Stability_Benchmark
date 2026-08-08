@@ -60,7 +60,7 @@ def evaluate_supervised(model,X_test, y_test, is_cnn=False):
     # CNN needs special input shape
     # ------------------------------------------------------
     if is_cnn:
-        # CNN expects: (sample features, channels)
+        # CNN expects: (sample, features, channels)
         X_test_cnn = X_test.reshape(
             -1, X_test.shape[1],1
         )
@@ -134,10 +134,28 @@ def evaluate_autoencoder(ae,X_test,y_test, dataset_name):
     y_true = (y_test != benign).astype(int)  # 1 = attack
 
     return {
+        # ===== COMPNAY / SECURITY VIEW (binary, attack-focused) =====
+        # These measure ONLY how well we catch attacks (the attack class alone),
+        # not averaged with benign. This is what a real security team cares about:
+        # "of all the atacks, how many did we catch?" a low recall here means
+        # attacks slip through - a critical, honest signal even if it looks bad.
+        # No averaging. The score reflects attack detection only and is not made higher
+        # by the many correctly classified normal samples.
         "accuracy": accuracy_score(y_true, y_pred),
         "precision": precision_score(y_true, y_pred, zero_division=0),
         "recall": recall_score(y_true, y_pred, zero_division=0),
         "f1": f1_score(y_true, y_pred, zero_division=0),
+
+        # ===== PAPER 1 COMPARISON VIEW (weishged across both classes) =====
+        # These average the score across BOTH benign and attach classes, weighted
+        # by class size. This matches paper 1;s method, so our numbers are riectly 
+        # comparable to it. Because benign is the majority and easy to classify,
+        # weighting pulls the score UP, which is why the weighted F1 looks higher
+        # than the binary F1. Same predictions, different way of summaryizing them.
+         "precision_weighted": precision_score(y_true, y_pred, average="weighted", zero_division=0),
+        "recall_weighted": recall_score(y_true, y_pred, average="weighted", zero_division=0),
+        "f1_weighted": f1_score(y_true, y_pred, average="weighted", zero_division=0),
+        
         "threshold": float(threshold),
     }
     
@@ -147,7 +165,7 @@ def evaluate_autoencoder(ae,X_test,y_test, dataset_name):
 def evaluate_isolation_forest(iso, X_test, y_test, dataset_name):
     """
     Isolation Forest labels each sample inlier or outlier.
-    +1 = inlier(normal), -1 = outlier(atack).
+    +1 = inlier(normal), -1 = outlier(attack).
     evaluate_isolation_forest -> ML
     """
     benign = config.BENIGN_LABEL[dataset_name]
@@ -190,7 +208,7 @@ def top_k_set(importance, k):
 def jaccard(set_a, set_b):
     # Jaccard similarity between two sets: |intersection| / |union|.
     union = set_a | set_b
-    if not union:        # both empty (should't happen)
+    if not union:        # both empty (shouldn't happen)
         return 0.0
     return len(set_a & set_b) / len(union)
 

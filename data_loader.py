@@ -115,15 +115,18 @@ def load_dataset(name):
         print(f"  encoded labels: {dict(zip(le.classes_, le.transform(le.classes_)))}")
 
 
-    # 5. Scale features (mean 0, std 1)
-    X = StandardScaler().fit_transform(X)
-
-    # 6. Split into train and test
+    # 5. Split into train and test
+    # split first
     X_train, X_test, y_train, y_test = train_test_split(
         X, y,
         test_size=config.TEST_SIZE,
         random_state=config.SEED,
         stratify=y,
     )
+    # 6. Scale: fit on training data only, then transform both 
+    scaler = StandardScaler() # build scaler only from training data
+    # apply rule
+    X_train = scaler.fit_transform(X_train) # learn mean/std from TRAIN only
+    X_test = scaler.transform(X_test)      # apply train's mean/std to test
 
     return X_train, X_test, y_train, y_test, feature_names

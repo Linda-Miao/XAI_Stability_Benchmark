@@ -84,15 +84,15 @@ def run_xai_for_model(model_name, model, Xtr, Xte, ytr, yte, feat, dataset_name,
     # X_bg = Xtr[:config.SHAP_BACKGROUND]  -> background samples,
     # Only SHAP KernelExplainer and GradientExplainer need these.
     """
-    SHAPE Eexplaier   | model | background? |  why?
-    TreeExplaier      | RF    | NO          | It can read the tree structure directly.
-    GradientExplainer | CNN   | YES          | It can read the tree structure directly.
-    KernelExplainer   | AE, Isolation Forest| YES | It can read the tree structure directly.
+    SHAP Eexplainer   | model | background? |  why?
+    TreeExplainer      | RF    | NO          | It can read the tree structure directly.
+    GradientExplainer | CNN   | YES | Uses background samples as the reference distribution.
+    KernelExplainer   | AE, Isolation Forest | YES | Estimates SHAP values relative to a background dataset.
     """
     results = {}  # each xai importance arrays
     runtimes = {} # get each xai run time
    
-    # XAI test0set cap: PI and LIME are too slow on huge test sets (e.g. cicids2017
+    # XAI test_set cap: PI and LIME are too slow on huge test sets (e.g. cicids2017
     # has 848K test rows). Subsample a fixed number of test rows for XAI only
     # ML metrics still use the full test set - this is XAI-specific
     cap = config.XAI_TEST_CAP
@@ -112,17 +112,17 @@ def run_xai_for_model(model_name, model, Xtr, Xte, ytr, yte, feat, dataset_name,
         results[name] = out
 
     if model_name == "rf":
-        timed("shap", lambda: xai.shap_random_forest(model, Xte[:config.SHAP_SAMPLES_RF], feat))
-        timed("lime", lambda: xai.lime_random_forest(model, Xtr, Xte, feat))
-        timed("pi",   lambda: xai.pi_random_forest(model, Xte, yte, feat))
+        timed("shap", lambda: xai.shap_random_forest(model,   Xte_xai[:config.SHAP_SAMPLES_RF], feat))
+        timed("lime", lambda: xai.lime_random_forest(model, Xtr, Xte_xai, feat))
+        timed("pi",   lambda: xai.pi_random_forest(model, Xte_xai, yte_xai, feat))
         # TreeSHAP does not require background samples because it uses the tree structure directly.
         # IG is not used because tree models do not provide gradients.
 
     elif model_name == "cnn":
-        timed("shap", lambda: xai.shap_cnn(model, Xte[:config.SHAP_SAMPLES_CNN], X_bg, feat))
-        timed("lime", lambda: xai.lime_cnn(model, Xtr, Xte, feat))
-        timed("pi",   lambda: xai.pi_cnn(model, Xte, yte, feat))
-        timed("ig",   lambda: xai.ig_cnn(model, Xte[:100], feat))
+        timed("shap", lambda: xai.shap_cnn(model, Xte_xai[:config.SHAP_SAMPLES_CNN], X_bg, feat))
+        timed("lime", lambda: xai.lime_cnn(model, Xtr, Xte_xai, feat))
+        timed("pi",   lambda: xai.pi_cnn(model, Xte_xai, yte_xai, feat))
+        timed("ig",   lambda: xai.ig_cnn(model, Xte_xai[:100], feat))
         # Deep SHAP/GradientExplainer requires background samples 
         # because they define the reference distribution for explanations.
         # LIME and PI do not need background samples because 
@@ -131,18 +131,18 @@ def run_xai_for_model(model_name, model, Xtr, Xte, ytr, yte, feat, dataset_name,
         # IG uses gradients and a baseline input rather than SHAP background samples.
         
     elif model_name == "ae":
-        timed("shap", lambda: xai.shap_autoencoder(model, Xte[:config.SHAP_SAMPLES_AE], X_bg, feat))
-        timed("lime", lambda: xai.lime_autoencoder(model, Xtr, Xte, feat, threshold))
-        timed("pi",   lambda: xai.pi_autoencoder(model, Xte, yte, feat, dataset_name))
-        timed("ig",   lambda: xai.ig_autoencoder(model, Xte[:100], feat))
+        timed("shap", lambda: xai.shap_autoencoder(model, Xte_xai[:config.SHAP_SAMPLES_AE], X_bg, feat))
+        timed("lime", lambda: xai.lime_autoencoder(model, Xtr, Xte_xai, feat, threshold))
+        timed("pi",   lambda: xai.pi_autoencoder(model, Xte_xai, yte_xai, feat, dataset_name))
+        timed("ig",   lambda: xai.ig_autoencoder(model, Xte_xai[:100], feat))
          # KernelSHAP requires background samples because it estimates feature contributions relative to a reference dataset.
         # LIME and PI do not require background samples because they rely on local perturbations and feature shuffling.
         # IG uses gradients and a baseline input, not SHAP background data.
 
     elif model_name == "iso":
-        timed("shap", lambda: xai.shap_isolation_forest(model, Xte[:config.SHAP_SAMPLES_AE], X_bg, feat))
-        timed("lime", lambda: xai.lime_isolation_forest(model, Xtr, Xte, feat))
-        timed("pi",   lambda: xai.pi_isolation_forest(model, Xte, yte, feat, dataset_name))
+        timed("shap", lambda: xai.shap_isolation_forest(model, Xte_xai[:config.SHAP_SAMPLES_AE], X_bg, feat))
+        timed("lime", lambda: xai.lime_isolation_forest(model, Xtr, Xte_xai, feat))
+        timed("pi",   lambda: xai.pi_isolation_forest(model, Xte_xai, yte_xai, feat, dataset_name))
         # Only SHAP may require background samples depending on the SHAP explainer used.
         # LIME uses training data to create local perturbations; PI uses test data to measure feature impact.
         # IG is not used because Isolation Forest is a tree-based model without gradients.

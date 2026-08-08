@@ -61,7 +61,7 @@ import config
 #   RF  -> TreeExplainer      (fast, built for tree-based models)
 #   CNN -> GradientExplainer  (for neural networks = deep learning models)
 #   AE -> KernelExplainer    (model-agnostic(work with almost any models), but slow); it reconstruction error instead of class predict; slowest mothod beause it repeatedly queries the model.
-# IF -> KernelExplanier  (predicts anomaly scores instead of classes.)
+# IF -> KernelExplainer  (predicts anomaly scores instead of classes.)
 
 """
 SHAP Explainers
@@ -121,7 +121,7 @@ Disadvantages:
 """
 
 def shap_random_forest(rf,X_sample, feature_names):
-    # SHAP for Random Forest using TreeEplainer (fastest).
+    # SHAP for Random Forest using TreeExplainer (fastest).
     explainer = shap.TreeExplainer(rf)            # initialize TreeExplainer
     shap_values = explainer.shap_values(X_sample) # generate SHAP values that quantify each feature's contribution to each prediction
 
@@ -134,11 +134,10 @@ def shap_random_forest(rf,X_sample, feature_names):
     else: importance = np.mean(np.abs(shap_values),axis=0) # binary: avarage asolute SHAP values
     all_zero = bool(np.all(importance == 0))
     return importance, all_zero
-    return importance
     
     
 def shap_cnn(cnn,X_sample, X_background, feature_names):
-    # SHAP for CNN usig GradientExplainer (need 3D input).
+    # SHAP for CNN using GradientExplainer (need 3D input).
     n_features = X_sample.shape[1]
 
     # CNN needs 3d: samples, features, channels
@@ -158,7 +157,7 @@ def shap_cnn(cnn,X_sample, X_background, feature_names):
 def shap_autoencoder(ae, X_sample, X_background, feature_names):
     # X_background = normal reference used for comparison
     """
-    SHAP for Autoencoder using KernalExplainer. the AE has no class output, so we wrap it: the     'prediction' it explain it the reconstruction error(MSE) per sample.
+    SHAP for Autoencoder using KernelExplainer. the AE has no class output, so we wrap it: the     'prediction' it explain it the reconstruction error(MSE) per sample.
     WARNING: it is slowest model (paper 1: 380s on 50 samples)
     """
     def ae_error(X):
@@ -215,7 +214,7 @@ def shap_isolation_forest(iso, X_sample, X_background, feature_names):
 # 2. PERMUTATION IMPORTANCE
 # ==========================================================
 # idea: shuffle one feature, measure how much performance drops; 
-# big drop = important feature, no drop = model doesn't needt it.
+# big drop = important feature, no drop = model doesn't need it.
 # WARNING: if a model scores 100%, shuffling one features may not hurt it at all. 
 
 from sklearn.inspection import permutation_importance
@@ -238,7 +237,7 @@ def pi_cnn(cnn, X_sample, y_sample, feature_names, n_repeats = 10):
     """
     PI for CNN - implemented manually 
     because sklearn's version cannot hadle keras models (3D input, probability output).
-    WARNING: slwest method in the pipeline (paper 1: 508s)
+    WARNING: slowest method in the pipeline (paper 1: 508s)
     """
     n_features = X_sample.shape[1]
 
@@ -247,12 +246,16 @@ def pi_cnn(cnn, X_sample, y_sample, feature_names, n_repeats = 10):
     baseline_pred = np.argmax(cnn.predict(X_3d, verbose = 0), axis = 1)
     baseline = f1_score(y_sample, baseline_pred, average = "weighted", zero_division = 0)
     importance = np.zeros(n_features)
-
+    # Seeded random generator for reproducible feature shffling
+    # Created ONCE before the loops so PI is deterministic across runs
+    rng = np.random.default_rng(config.SEED)
     for j in range(n_features):
         drops = []
         for _ in range(n_repeats):
             X_perm = X_sample.copy()
-            np.random.shuffle(X_perm[:, j]) # break one feature
+            # shuffle one feature using the seeded rng (was np.random.shuffle,
+            # which had no seed and made results differ between runs)
+            X_perm[:,j] = rng.permutation(X_perm[:,j])
             X_perm_3d = X_perm.reshape(-1, n_features, 1)
             pred = np.argmax(cnn.predict(X_perm_3d, verbose=0), axis=1)
             score = f1_score(y_sample, pred, average="weighted", zero_division=0)
@@ -277,11 +280,15 @@ def pi_autoencoder(ae, X_sample, y_sample, feature_names, dataset_name, n_repeat
     baseline = f1_score(y_true, (mse > threshold).astype(int), zero_division=0)
 
     importance = np.zeros(n_features)
+    # Seeded random generator for reproducible feature shuffling
+    # Created ONCE before the loops so PI is deterministic across runs.
+    rng = np.random.default_rng(config.SEED)
     for j in range(n_features):
         drops = []
         for _ in range(n_repeats):
             X_perm = X_sample.copy()
-            np.random.shuffle(X_perm[:, j])
+            # Shuffle one feature with the seeded rng (was unseeded np.random.shuffle).
+            X_perm[:,j] = rng.permutation(X_perm[:,j])
             X_pred_perm = ae.predict(X_perm, verbose=0)
             mse_perm = np.mean(np.power(X_perm - X_pred_perm, 2), axis=1)
             score = f1_score(y_true, (mse_perm > threshold).astype(int), zero_division=0)
@@ -299,11 +306,15 @@ def pi_isolation_forest(iso, X_sample, y_sample, feature_names, dataset_name, n_
 
     baseline = f1_score(y_true, (iso.predict(X_sample) == -1).astype(int), zero_division=0)
     importance = np.zeros(n_features)
+    # Seeded random generator for reproducible feature shuffling
+    # Created ONCE before the loops so PI is deterministic across runs.
+    rng = np.random.default_rng(config.SEED)
     for j in range(n_features):
         drops = []
         for _ in range(n_repeats):
             X_perm = X_sample.copy()
-            np.random.shuffle(X_perm[:, j])
+            # Shuffle one feature with the seeded rng (was unseeded np.random.shuffle)
+            X_perm[:,j] = rng.permutation(X_perm[:,j])
             score = f1_score(y_true, (iso.predict(X_perm) == -1).astype(int), zero_division=0)
             drops.append(baseline - score)
         importance[j] = np.mean(drops)
@@ -315,7 +326,7 @@ def pi_isolation_forest(iso, X_sample, y_sample, feature_names, dataset_name, n_
 # ==========================================================
 # LIME is LOCAL, it explains one prediction at a time by perturbing that sample and fitting a simple linear model to the results.
 
-# ESS needs a GLOBAL ranking comparable to SHAP and PI, so we run LIME on many samples and average the asolute feature weights.
+# ESS needs a GLOBAL ranking comparable to SHAP and PI, so we run LIME on many samples and average the absolute feature weights.
 # Paper 1 used LIME illustratively on 2 instances; averaging over n_samples gives a stable global picture.
 
 # NOTE: LIME returns feature DESCRPTIONS like "-0.51 < lat_y <= -0.27", not plain names, so we map each description back to a feature index.
@@ -324,14 +335,13 @@ import lime
 import lime.lime_tabular
 def _lime_global(explainer, predict_fn, X_sample, feature_names, n_samples, n_perturb=1000):
     """
-    shared helper: run LIME on n_samples instances and average absolute feature weigts 
+    shared helper: run LIME on n_samples instances and average absolute feature weights 
     into one global importance array. 
     Returns the running average after every instance, so we can compare(say) 
     50 vs 100 sample without re-running LIME.
     """
     n_features = len(feature_names)
     running = np.zeros(n_features)
-    snapshots = {}  # {n_used: importance array}
 
     for i in range (n_samples):
         exp = explainer.explain_instance(
@@ -342,16 +352,14 @@ def _lime_global(explainer, predict_fn, X_sample, feature_names, n_samples, n_pe
         )
 
         # exp.at-map() gives {class:[(feature_index, weight),...]} -> returns features 
-        #indices directly which sidesteps the string-parsing problem entirely.
-        # take the first available class's explanation
+        # indices directly which sidesteps the string-parsing problem entirely.
+        # Take the first available class's explanation
         weights = list(exp.as_map().values())[0]
         for  feat_idx, w in weights:
             running[feat_idx] += abs(w)
     importance = running / n_samples
     all_zero = bool(np.all(importance == 0))
     return importance, all_zero
-    # snapshots solves 50 vs 100 question in one pass and record 
-    # running 50 and 100 results for me to comparison.
 
 def lime_random_forest(rf, X_train, X_sample, feature_names, n_samples = 50):
     """LIME for Random Forest - works directly with predict_proba."""
@@ -403,7 +411,7 @@ def lime_autoencoder(ae, X_train, X_sample, feature_names, threshold, n_samples 
 def lime_isolation_forest(iso, X_train, X_sample, feature_names, n_samples = 50):
     """
     LIME for Isolation Forest - convert the anomaly score to pseudo-probabilities. 
-    decision_function is negatve for outliers
+    decision_function is negative for outliers
     """
     def iso_predict_proba(X):
         scores = iso.decision_function(X)
@@ -420,7 +428,7 @@ def lime_isolation_forest(iso, X_train, X_sample, feature_names, n_samples = 50)
 # ==========================================================
 # 4. INTEGRATED GRADIENTS  (NEW IN PAPER 2)
 # ==========================================================
-# Idea: start from a baseline (all zeros), step gradually towars the 
+# Idea: start from a baseline (all zeros), step gradually towards the 
 # real input, and measure the gradient at each step. Sum those gradients along the path.
 
 # ONLY works on neural models (CNN, AE). Tree-based models (Random Forest,
@@ -469,7 +477,7 @@ def ig_cnn(cnn, X_sample, feature_names, n_steps=50):
 
 def ig_autoencoder(ae, X_sample, feature_names, n_steps=50):
     """
-    integreate gradients for the autoencoder. 
+    integrate gradients for the autoencoder. 
     The AE has no class score, so we attribute reconstruction error
     (MSE) back to each input feature.
     """

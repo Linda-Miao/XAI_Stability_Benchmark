@@ -41,6 +41,13 @@ All hyperparameters match Paper 1 so results remain comparable.
 
 import numpy as np  # NumPy = numerical operations and arrays
 import tensorflow as tf  # TensorFlow = deep learning library
+import config # shared project settings (must import before using config.SEED)
+
+# Set seeds for reproducible neural network training
+# RF/IF use random_state=SEED; CNN/AE need NumPy + TenshorFlow globle seeds
+# for reproducible weight initialization, dropout, and batch shuffling.
+np.random.seed(config.SEED)
+tf.random.set_seed(config.SEED)
 
 from tensorflow.keras.models import Model  # Build neural network model
 
@@ -118,13 +125,13 @@ def build_cnn(X_train, y_train):
     # Second convolution layer
     x = Conv1D(128, 3, activation="relu", padding="same")(x)
 
-    # Reduce size
+    # Downsample feature maps.
     x = MaxPooling1D(2)(x)
 
     # Flatten to single vector
     x = Flatten()(x)
 
-    # Dense layer = learns feature relationships
+    # Dense layer = Learns higher-level feature representations.
     x = Dense(128, activation="relu")(x)
 
     # Dropout = randomly disables 30% neurons to reduce overfitting
@@ -157,9 +164,12 @@ def build_cnn(X_train, y_train):
     model.fit(
         X_train_cnn,
         y_train,
-        batch_size=256,   # number of samples per update step
-        epochs=5,          # number of full passes through dataset
+        # from config (was 256); number of samples per update step
+        batch_size=config.CNN_BATCH, 
+        # from config (was 5); number of full passes through dataset
+        epochs=config.CNN_EPOCHS,  
         validation_split=0.1, # use 10% of training data for validation to monitor performance during training. it like train-> pretest->test
+        shuffle=True, # explicit
         verbose=1          # show training progress
     )
 
@@ -177,43 +187,44 @@ def build_cnn(X_train, y_train):
 # PAPER 1 FINDING: performance varies across datasets
 
 def build_autoencoder(X_train, y_train, dataset_name):
-
     input_dim = X_train.shape[1]              # number of features
     benign = config.BENIGN_LABEL[dataset_name]
 
     # Keep ONLY normal traffic
     X_normal = X_train[y_train == benign]
 
-    inp = Input(shape=(input_dim,))
+    # Safety check: if no benign samples found, the benign label is likely
+    # wrong (e.g. set to a text value when labels are numeric). This caught
+    # a real bug on UAVIDS-2025 where BENIGN_LABEL was "Normal Traffic" (text)
+    # instead of the encoded number.
+    if len(X_normal) == 0:
+        raise ValueError(
+            f"No benign samples for '{dataset_name}': BENIGN_LABEL is {benign} "
+            f"but training labels are {np.unique(y_train)}. Check BENIGN_LABEL matches the encoded label."
+        )
 
+    inp = Input(shape=(input_dim,))
     # Encoder (compress data)
     x = Dense(32, activation="relu")(inp)
-
     # Bottleneck (compressed representation)
     x = Dense(16, activation="relu")(x)
-
     # Decoder (reconstruct data)
     x = Dense(32, activation="relu")(x)
-
-    # Output = reconstruct original input
+    # Output = Reconstruct the original input features.
     out = Dense(input_dim, activation="linear")(x)
-
     ae = Model(inputs=inp, outputs=out)
-
     ae.compile(
         optimizer="adam",
         loss="mse"   # reconstruction error
     )
-
     ae.fit(
         X_normal,
         X_normal,
-        batch_size=512,
-        epochs=10,
+        batch_size=config.AE_BATCH,
+        epochs=config.AE_EPOCHS,
         validation_split=0.1,
         verbose=1
     )
-
     return ae
 
 
@@ -231,14 +242,17 @@ def build_isolation_forest(X_train, y_train, dataset_name):
     benign = config.BENIGN_LABEL[dataset_name]
     X_normal = X_train[y_train == benign]  # train on normal traffic only
 
+    # Safety check: catch empty benign set (e.g. wrong BENIGN_LABEL).
+    if len(X_normal) == 0:
+        raise ValueError(
+            f"No benign samples for '{dataset_name}': BENIGN_LABEL is {benign} "
+            f"but training labels are {np.unique(y_train)}. Check BENIGN_LABEL matches the encoded label."
+        )
+
     iso = IsolationForest(
         n_estimators=100,                  # number of trees
         random_state=config.SEED,          # reproducible results
         n_jobs=-1                          # use all CPU cores
     )
-
-    # keep only normal traffic
-
     iso.fit(X_normal)                     # learn normal behavior
-
     return iso

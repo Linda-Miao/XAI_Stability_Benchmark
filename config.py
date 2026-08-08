@@ -92,7 +92,14 @@ SHAP_BACKGROUND = 50
 # would otherwise take hours. ML metrics still use the full test set.
 XAI_TEST_CAP = 3000
 
-# TRAINING cap for huge datasets: 8GB RAM cannot train 4 models on 2M+ rows.
-# CICIDS (2.8M) is subsampled to these sizes (stratified) so it fits in memory.
+# CICIDS (2.8M rows) is subsampled to 150K train / 50K test (stratified) because
+# an 8GB machine (~3GB available) cannot train 4 models on the full dataset.
+# Both train and test are capped; 50K test is still a large, representative sample.
 CICIDS_TRAIN_CAP = 150000
 CICIDS_TEST_CAP = 50000
+
+# Model training hyperparameters
+CNN_EPOCHS = 5
+CNN_BATCH = 256
+AE_EPOCHS = 10
+AE_BATCH = 512
