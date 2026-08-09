@@ -260,7 +260,7 @@ export default function App() {
       </div>
 
       <div style={{ background: C.panel, borderTop: `1px solid ${C.soft}` }}>
-       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "16px 24px", fontFamily: mono, fontSize: 11, color: C.sub, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "16px 24px", fontFamily: mono, fontSize: 11, color: C.sub, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <span>6 datasets · 4 models · 4 XAI methods · ESS stability metric</span>
           <span style={{ display: "flex", gap: 14, alignItems: "center" }}>
             <a href="https://github.com/Linda-Miao/XAI_Stability_Benchmark" target="_blank" rel="noopener noreferrer" style={{ color: C.cyan, textDecoration: "none" }}>GitHub</a>

@@ -5,3 +5,9 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+
+# React app — exclude dependencies and build output
+xai-app/node_modules/
+xai-app/dist/
+.vercel/
+.DS_Store
